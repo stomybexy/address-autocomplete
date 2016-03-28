@@ -30,7 +30,7 @@ Example:
     </style>
 
     <template>
-        <google-maps-api api-key="[[apiKey]]" client-id="[[clientId]]" version="3.exp" libraries="places" signed-in="false" on-api-load="_mapsApiLoaded"></google-maps-api>
+        <google-maps-api id="gmap" api-key="[[apiKey]]" client-id="[[clientId]]" version="3.exp" libraries="places" signed-in="false" on-api-load="_mapsApiLoaded"></google-maps-api>
 
         <paper-input-container>
             <label hidden$="[[!label]]">[[label]]</label>
@@ -64,6 +64,7 @@ Example:
              * If set, a Client ID will take precedence over an API Key.
              */
             clientId: String,
+            country: String,
             place: {
                 type: Object,
                 notify: true,
@@ -106,8 +107,13 @@ Example:
 
             var input = this.$.address1Input;
             var options = {
-                types: ['address']
+                types: [ 'geocode']
             };
+            if(this.country){
+                options.componentRestrictions = {
+                     country: this.country
+                }
+            }
             this.autocomplete = new window.google.maps.places.Autocomplete(input, options);
 
             this._boundFillInAddress = this._fillInAddress.bind(this);
@@ -121,9 +127,9 @@ Example:
         _fillInAddress: function () {
             var place = this.autocomplete.getPlace();
             this._place = place;
-//            if (!place) {
-//                return;
-//            }
+            //            if (!place) {
+            //                return;
+            //            }
 
             //      this.$.address1Input.value = (this._getAddressComponent(place, 'street_number', 'short_name') 
             //          + ' ' + this._getAddressComponent(place, 'route', 'long_name')).trim() || place.name;
@@ -147,9 +153,11 @@ Example:
         _format: function (place) {
             return {
                 adresse1: (this._getAddressComponent(place, 'street_number', 'short_name') + ' ' + this._getAddressComponent(place, 'route', 'long_name')).trim() || place.name,
-                city: this._getAddressComponent(place, 'locality', 'long_name'),
+                city: this._getAddressComponent(place, 'locality', 'short_name').toLocaleLowerCase(),
                 state: this._getAddressComponent(place, 'administrative_area_level_1', 'short_name'),
-                zip: this._getAddressComponent(place, 'postal_code', 'short_name')
+                zip: this._getAddressComponent(place, 'postal_code', 'short_name'),
+                country: this._getAddressComponent(place, 'country', 'short_name').toLocaleLowerCase(),
+                location: place.geometry.location
             }
         }
 
