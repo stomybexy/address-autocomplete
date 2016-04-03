@@ -157,7 +157,10 @@ Example:
                 state: this._getAddressComponent(place, 'administrative_area_level_1', 'short_name'),
                 zip: this._getAddressComponent(place, 'postal_code', 'short_name'),
                 country: this._getAddressComponent(place, 'country', 'short_name').toLocaleLowerCase(),
-                location: place.geometry.location
+                location: {
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng()
+                }
             }
         }
 
