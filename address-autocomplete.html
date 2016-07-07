@@ -1,15 +1,8 @@
-<!--
-@license
-Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
-This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
-The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
-The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
-Code distributed by Google as part of the polymer project is also
-subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
--->
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="../google-apis/google-maps-api.html">
 <link rel="import" href="../paper-input/paper-input.html">
+<link rel="import" href="../iron-validatable-behavior/iron-validatable-behavior.html">
+
 
 <!--
 A Polymer address form element that offers suggestions from the Google Maps API as you type.
@@ -32,17 +25,16 @@ Example:
     <template>
         <google-maps-api id="gmap" api-key="[[apiKey]]" client-id="[[clientId]]" version="3.exp" libraries="places" signed-in="false" on-api-load="_mapsApiLoaded"></google-maps-api>
 
-        <paper-input-container>
+        <paper-input-container invalid="[[invalid]]">
             <label hidden$="[[!label]]">[[label]]</label>
-            <input is="iron-input" id="address1Input" type="text" placeholder="" autofocus>
+            <input is="iron-input" id="input" bind-value="{{value}}" aria-labelledby$="[[_ariaLabelledBy]]" aria-describedby$="[[_ariaDescribedBy]]" required$="[[required]]" name$="[[name]]" type="text" disabled$="[[disabled]]" invalid="{{invalid}}" autofocus$="[[autofocus]]"
+                inputmode$="[[inputmode]]" placeholder="" readonly$="[[readonly]]" maxlength$="[[maxlength]]" size$="[[size]]">
+
+            <template is="dom-if" if="[[errorMessage]]">
+                <paper-input-error id="error">[[errorMessage]]</paper-input-error>
+            </template>
         </paper-input-container>
 
-        <!--
-    <paper-input id="address2Input" type="text" label="Street Address 2"></paper-input>
-    <paper-input id="cityInput" type="text" label="City"></paper-input>
-    <paper-input id="stateInput" type="text" label="State"></paper-input>
-    <paper-input id="zipCodeInput" type="text" label="ZIP Code"></paper-input>
--->
 
     </template>
 
@@ -52,6 +44,11 @@ Example:
     Polymer({
 
         is: 'address-autocomplete',
+
+        behaviors: [
+            Polymer.IronFormElementBehavior,
+            Polymer.IronValidatableBehavior
+        ],
 
         properties: {
             /**
@@ -70,6 +67,12 @@ Example:
                 notify: true,
                 computed: '_format(_place)'
             },
+            autoValidate: {
+                type: Boolean,
+                reflectToAttribute: true,
+                value: false
+            },
+            errorMessage: String,
             _place: {
                 type: Object
             },
@@ -78,23 +81,30 @@ Example:
                 value: ''
             }
         },
+        observers: [
+            '_computeValue(place)',
+            "_synchronize(value)"
+        ],
 
-        ready: function () {},
-
-        attached: function () {
+        ready: function() {
             this._initialize();
+
         },
 
-        detached: function () {
+        attached: function() {
+
+        },
+
+        detached: function() {
             this.autocomplete = null;
             window.google = null;
         },
 
-        _mapsApiLoaded: function () {
+        _mapsApiLoaded: function() {
             this._initialize();
         },
 
-        _initialize: function () {
+        _initialize: function() {
             if (!this.isAttached) {
                 return;
             }
@@ -105,13 +115,13 @@ Example:
                 return;
             }
 
-            var input = this.$.address1Input;
+            var input = this.$.input;
             var options = {
-                types: [ 'geocode']
+                types: ['geocode']
             };
-            if(this.country){
+            if (this.country) {
                 options.componentRestrictions = {
-                     country: this.country
+                    country: this.country
                 }
             }
             this.autocomplete = new window.google.maps.places.Autocomplete(input, options);
@@ -119,27 +129,24 @@ Example:
             this._boundFillInAddress = this._fillInAddress.bind(this);
             window.google.maps.event.addListener(this.autocomplete, 'place_changed', this._boundFillInAddress);
 
-            input.addEventListener('blur', function () {
+            input.addEventListener('blur', function() {
                 setTimeout(this._boundFillInAddress, 0);
             }.bind(this));
+
         },
 
-        _fillInAddress: function () {
+        _fillInAddress: function() {
+          var self = this;
             var place = this.autocomplete.getPlace();
             this._place = place;
-            //            if (!place) {
-            //                return;
-            //            }
+            setTimeout(function(){
+                if (self.autoValidate)
+                    self.validate();
+            }, 0);
 
-            //      this.$.address1Input.value = (this._getAddressComponent(place, 'street_number', 'short_name') 
-            //          + ' ' + this._getAddressComponent(place, 'route', 'long_name')).trim() || place.name;
-            //      this.$.address2Input.value = '';
-            //      this.$.cityInput.value = this._getAddressComponent(place, 'locality', 'long_name');
-            //      this.$.stateInput.value = this._getAddressComponent(place, 'administrative_area_level_1', 'short_name');
-            //      this.$.zipCodeInput.value = this._getAddressComponent(place, 'postal_code', 'short_name');
         },
 
-        _getAddressComponent: function (place, component, valueType) {
+        _getAddressComponent: function(place, component, valueType) {
             if (place.address_components) {
                 for (var i = 0; i < place.address_components.length; i++) {
                     var componentType = place.address_components[i].types[0];
@@ -150,7 +157,11 @@ Example:
             }
             return '';
         },
-        _format: function (place) {
+        _format: function(place) {
+            if (!place) {
+                return null;
+            }
+
             return {
                 adresse1: (this._getAddressComponent(place, 'street_number', 'short_name') + ' ' + this._getAddressComponent(place, 'route', 'long_name')).trim() || place.name,
                 city: this._getAddressComponent(place, 'locality', 'short_name').toLocaleLowerCase(),
@@ -160,8 +171,38 @@ Example:
                 location: {
                     lat: place.geometry.location.lat(),
                     lng: place.geometry.location.lng()
-                }
+                },
+                formatted_address: place.formatted_address
             }
+        },
+        _computeValue: function(place) {
+            if (place) {
+                this.value = place.formatted_address;
+            } else {
+                value = "";
+            }
+        },
+        _onValue: function(value) {
+            if (!value) {
+
+                this.typedValue = '';
+                this.autocomplete.set('place', void(0))
+
+            } else {
+                this.typedValue = value;
+
+            }
+        },
+        _getValidity: function() {
+            if (this.required) {
+                return this.place;
+            }
+            return (!this.place && !this.value) || this.place;
+        },
+        _synchronize: function(value){
+          if(this.place && this.place.formatted_address !== value){
+            this.autocomplete.set('place', void(0));
+          }
         }
 
     });
